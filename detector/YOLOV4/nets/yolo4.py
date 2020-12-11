@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from collections import OrderedDict
-from nets.CSPdarknet import darknet53
+from .CSPdarknet import darknet53
 
 def conv2d(filter_in, filter_out, kernel_size, stride=1):
     pad = (kernel_size - 1) // 2 if kernel_size else 0

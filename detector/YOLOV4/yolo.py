@@ -11,7 +11,7 @@ from nets.yolo4 import YoloBody
 import torch.backends.cudnn as cudnn
 from PIL import Image,ImageFont, ImageDraw
 from torch.autograd import Variable
-from utils.utils import non_max_suppression, bbox_iou, DecodeBox,letterbox_image,yolo_correct_boxes
+from .utils.utils import non_max_suppression, bbox_iou, DecodeBox,letterbox_image,yolo_correct_boxes
 
 #--------------------------------------------#
 #   使用自己训练好的模型预测需要修改2个参数
@@ -19,9 +19,9 @@ from utils.utils import non_max_suppression, bbox_iou, DecodeBox,letterbox_image
 #--------------------------------------------#
 class YOLO(object):
     _defaults = {
-        "model_path": 'model_data/yolo4_weights.pth',
-        "anchors_path": 'model_data/yolo_anchors.txt',
-        "classes_path": 'model_data/coco_classes.txt',
+        "model_path":   '/media/deyiwang/3f3ddbf8-8bf1-44ae-b725-2a349adc7d8f/sth_4_1/pytorch-yolov4-deepsort/detector/YOLOV4/model_data/yolo4_weights.pth',
+        "anchors_path": '/media/deyiwang/3f3ddbf8-8bf1-44ae-b725-2a349adc7d8f/sth_4_1/pytorch-yolov4-deepsort/detector/YOLOV4/model_data/yolo_anchors.txt',
+        "classes_path": '/media/deyiwang/3f3ddbf8-8bf1-44ae-b725-2a349adc7d8f/sth_4_1/pytorch-yolov4-deepsort/detector/YOLOV4/model_data/coco_classes.txt',
         "model_image_size" : (416, 416, 3),
         "confidence": 0.5,
         "iou" : 0.3,
@@ -145,7 +145,9 @@ class YOLO(object):
 
         for i, c in enumerate(top_label):
             predicted_class = self.class_names[c]
+            #----- c is the cls_ids
             score = top_conf[i]
+            print(c,score)
 
             top, left, bottom, right = boxes[i]
             top = top - 5
@@ -157,9 +159,11 @@ class YOLO(object):
             left = max(0, np.floor(left + 0.5).astype('int32'))
             bottom = min(np.shape(image)[0], np.floor(bottom + 0.5).astype('int32'))
             right = min(np.shape(image)[1], np.floor(right + 0.5).astype('int32'))
-
+            print(top, left, bottom, right)
+            #-----bbox is here
             # 画框框
             label = '{} {:.2f}'.format(predicted_class, score)
+            #-----
             draw = ImageDraw.Draw(image)
             label_size = draw.textsize(label, font)
             label = label.encode('utf-8')
@@ -180,4 +184,87 @@ class YOLO(object):
             draw.text(text_origin, str(label,'UTF-8'), fill=(0, 0, 0), font=font)
             del draw
         return image
+
+    def new_detect(self, image):
+        image_shape = np.array(np.shape(image)[0:2])
+
+        crop_img = np.array(letterbox_image(image, (self.model_image_size[1],self.model_image_size[0])))
+        photo = np.array(crop_img,dtype = np.float32)
+        photo /= 255.0
+        photo = np.transpose(photo, (2, 0, 1))
+        photo = photo.astype(np.float32)
+        images = []
+        images.append(photo)
+        images = np.asarray(images)
+
+        with torch.no_grad():
+            images = torch.from_numpy(images)
+            if self.cuda:
+                images = images.cuda()
+            outputs = self.net(images)
+            
+        output_list = []
+        for i in range(3):
+            output_list.append(self.yolo_decodes[i](outputs[i]))
+        output = torch.cat(output_list, 1)
+        batch_detections = non_max_suppression(output, len(self.class_names),
+                                                conf_thres=self.confidence,
+                                                nms_thres=self.iou)
+        # print("----->>>>>",type(batch_detections))
+        try:
+            batch_detections = batch_detections[0].cpu().numpy()
+        except:
+            list_bbox = None
+            list_conf = None
+            list_cls = None
+
+        if  batch_detections[0] is not None:    
+            top_index = batch_detections[:,4]*batch_detections[:,5] > self.confidence
+            top_conf = batch_detections[top_index,4]*batch_detections[top_index,5]
+            top_label = np.array(batch_detections[top_index,-1],np.int32)
+            top_bboxes = np.array(batch_detections[top_index,:4])
+            top_xmin, top_ymin, top_xmax, top_ymax = np.expand_dims(top_bboxes[:,0],-1),np.expand_dims(top_bboxes[:,1],-1),np.expand_dims(top_bboxes[:,2],-1),np.expand_dims(top_bboxes[:,3],-1)
+
+            # 去掉灰条
+            boxes = yolo_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.model_image_size[0],self.model_image_size[1]]),image_shape)
+
+            # font = ImageFont.truetype(font='model_data/simhei.ttf',size=np.floor(3e-2 * np.shape(image)[1] + 0.5).astype('int32'))
+
+            thickness = (np.shape(image)[0] + np.shape(image)[1]) // self.model_image_size[0]
+
+            list_bbox = []
+            list_cls = []
+            list_conf = []
+            for i, c in enumerate(top_label):
+                list_sub_bbox = []
+                predicted_class = self.class_names[c]
+                #----- c is the cls_ids
+                score = top_conf[i]
+
+                top, left, bottom, right = boxes[i]
+                top = top - 5
+                left = left - 5
+                bottom = bottom + 5
+                right = right + 5
+
+                top = max(0, np.floor(top + 0.5).astype('int32'))
+                left = max(0, np.floor(left + 0.5).astype('int32'))
+                bottom = min(np.shape(image)[0], np.floor(bottom + 0.5).astype('int32'))
+                right = min(np.shape(image)[1], np.floor(right + 0.5).astype('int32'))
+
+                center_x = np.floor((right - left)/2 + left)
+                center_y = np.floor((top - bottom)/2 + bottom)
+                w = np.abs(right - left)
+                h = np.abs(top - bottom)
+                list_sub_bbox.append(center_x)
+                list_sub_bbox.append(center_y)
+                list_sub_bbox.append(w)
+                list_sub_bbox.append(h)
+
+                list_bbox.append(list_sub_bbox)
+                list_cls.append(c)
+                list_conf.append(score)
+
+        return list_bbox, list_conf, list_cls
+            #-----bbox is here
 
