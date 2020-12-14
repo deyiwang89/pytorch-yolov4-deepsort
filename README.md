@@ -8,9 +8,12 @@ The source code of deep sort is from [Deep Sort](https://github.com/ZQPei/deep_s
 When using this code, you may need to adjust the file address of pre-training weight and coco_classes file
 
 ## Environment
+
 torch==1.2
 
 ## Reference
+
 [https://github.com/bubbliiiing/yolov4-pytorch](https://github.com/bubbliiiing/yolov4-pytorch)
+
 [https://github.com/ZQPei/deep_sort_pytorch](https://github.com/ZQPei/deep_sort_pytorch)
 
