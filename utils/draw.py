@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from collections import deque
 
 palette = (2 ** 11 - 1, 2 ** 15 - 1, 2 ** 20 - 1)
 
@@ -11,7 +12,7 @@ def compute_color_for_labels(label):
     color = [int((p * (label ** 2 - label + 1)) % 255) for p in palette]
     return tuple(color)
 
-
+pts = [deque(maxlen = 30) for _ in range(9999)]
 def draw_boxes(img, bbox, identities=None, offset=(0,0)):
     for i,box in enumerate(bbox):
         x1,y1,x2,y2 = [int(i) for i in box]
@@ -27,6 +28,15 @@ def draw_boxes(img, bbox, identities=None, offset=(0,0)):
         cv2.rectangle(img,(x1, y1),(x2,y2),color,3)
         cv2.rectangle(img,(x1, y1),(x1+t_size[0]+3,y1+t_size[1]+4), color,-1)
         cv2.putText(img,label,(x1,y1+t_size[1]+4), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
+        #-----lines
+        center = ((round((x1+x2)/2),round((y1+y2)/2)))
+        pts[id].append(center)
+        cv2.circle(img,(round((x1+x2)/2),round((y1+y2)/2)),1,color,5)
+        for j in range(1, len(pts[id])):
+            if pts[id][j-1] is None or pts[id][j] is None:
+                continue
+            thickness = int(np.sqrt(64/float(j+1)) * 2)
+            cv2.line(img,(pts[id][j-1]),(pts[id][j]), color, thickness)
     return img
 
 
