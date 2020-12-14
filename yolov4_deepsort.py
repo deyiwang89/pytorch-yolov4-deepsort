@@ -168,5 +168,5 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    with VideoTracker( args, video_path='./a.mp4') as vdo_trk:
+    with VideoTracker( args, video_path='./001.avi') as vdo_trk:
         vdo_trk.run()
