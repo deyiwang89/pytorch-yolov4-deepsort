@@ -20,3 +20,5 @@ torch==1.2
 
 [https://github.com/ZQPei/deep_sort_pytorch](https://github.com/ZQPei/deep_sort_pytorch)
 
+[问题查阅CSDN](https://blog.csdn.net/weixin_38757163/article/details/111150364?spm=1001.2014.3001.5501)
+
